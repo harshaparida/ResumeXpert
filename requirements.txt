@@ -1,0 +1,12 @@
+Flask
+flask-cors
+pdfplumber
+python-docx
+transformers
+torch
+werkzeug
+nltk
+spacy
+bert
+openai
+
