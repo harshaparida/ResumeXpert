@@ -9,4 +9,6 @@ nltk
 spacy
 bert
 openai
+pypdf==4.1.0
+
 

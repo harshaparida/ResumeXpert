@@ -23,3 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 lenv
+
+__DATA__
+__pycache__
