@@ -21,66 +21,21 @@
             .then(data => handleResponse(data))
             .catch(error => console.error("Error:", error));
         }
-
-        function updateFileName(file) {
-            let fileNameDisplay = document.getElementById("fileNameDisplay");
-            fileNameDisplay.innerText = file ? file.name : "No file chosen";
-        }
-
-        function handleFileSelect(event) {
-            event.preventDefault();
-            event.stopPropagation();
-
-            let files = event.dataTransfer.files;
-            if (files.length > 0) {
-                document.getElementById("fileInput").files = files;
-                updateFileName(files[0]);
-            }
-
-            document.getElementById("dropArea").classList.remove("drag-over");
-        }
-
-        function highlightDropArea(event) {
-            event.preventDefault();
-            event.stopPropagation();
-            document.getElementById("dropArea").classList.add("drag-over");
-        }
-
-        function removeHighlight(event) {
-            event.preventDefault();
-            event.stopPropagation();
-            document.getElementById("dropArea").classList.remove("drag-over");
-        }
     </script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="static/styles.css">
 </head>
 <body>
-    <div class="container">
-        <h2>Upload Resume</h2>
+    <h2>Upload Resume</h2>
+    <form id="resumeForm" onsubmit="uploadResume(event)">
+        <input type="file" name="file" required>
+        <br><br>
+        <textarea name="job-description" placeholder="Enter job description..."></textarea>
+        <br><br>
+        <button type="submit">Analyze Resume</button>
+    </form>
 
-        <!-- Drag & Drop Area -->
-        <div id="dropArea" class="drop-area"
-            ondrop="handleFileSelect(event)"
-            ondragover="highlightDropArea(event)"
-            ondragleave="removeHighlight(event)">
-            <p>Drag & Drop your resume here</p>
-            <p>or</p>
-            <label class="file-upload">
-                <input type="file" id="fileInput" name="file" required onchange="updateFileName(this.files[0])">
-                <span>Choose File</span>
-            </label>
-            <p id="fileNameDisplay">No file chosen</p>
-        </div>
-
-        <!-- Job Description Input -->
-        <form id="resumeForm" onsubmit="uploadResume(event)">
-            <textarea name="job-description" placeholder="Enter job description..." required></textarea>
-            <button type="submit">Analyze Resume</button>
-        </form>
-
-        <h3 id="message"></h3>
-        <h4 id="jobDesc"></h4>
-        <pre id="resumeData"></pre>
-    </div>
+    <h3 id="message"></h3>
+    <h4 id="jobDesc"></h4>
+    <pre id="resumeData"></pre>
 </body>
 </html>

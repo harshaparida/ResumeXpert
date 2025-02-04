@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>ResuMind - Analysis Results</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h2>Resume Analysis Results</h2>
+        <h4>Job Description: {{ job_description }}</h4>
+        <pre>{{ parsed_resume | tojson(indent=2) }}</pre>
+        <a href="/" class="back-button">Upload Another Resume</a>
+    </div>
+</body>
+</html>
