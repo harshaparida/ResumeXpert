@@ -1,41 +1,22 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>ResuMind - Resume Analyzer</title>
-    <script>
-        function handleResponse(data) {
-            document.getElementById("message").innerText = data.message;
-            document.getElementById("jobDesc").innerText = "Job Description: " + data.job_description;
-            document.getElementById("resumeData").innerText = JSON.stringify(data.parsed_resume, null, 2);
-        }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resume Analyzer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 
-        function uploadResume(event) {
-            event.preventDefault();
-            let formData = new FormData(document.getElementById("resumeForm"));
-
-            fetch("/process", {
-                method: "POST",
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => handleResponse(data))
-            .catch(error => console.error("Error:", error));
-        }
-    </script>
-    <link rel="stylesheet" href="static/styles.css">
 </head>
 <body>
-    <h2>Upload Resume</h2>
-    <form id="resumeForm" onsubmit="uploadResume(event)">
-        <input type="file" name="file" required>
-        <br><br>
-        <textarea name="job-description" placeholder="Enter job description..."></textarea>
-        <br><br>
-        <button type="submit">Analyze Resume</button>
-    </form>
+    <h1>Resume Analyzer</h1>
+    <form action="/process" method="POST" enctype="multipart/form-data">
+        <label for="file">Upload Resume:</label>
+        <input type="file" name="file" id="file" required><br><br>
 
-    <h3 id="message"></h3>
-    <h4 id="jobDesc"></h4>
-    <pre id="resumeData"></pre>
+        <label for="job-description">Job Description:</label><br>
+        <textarea name="job-description" id="job-description" rows="4" cols="50" required></textarea><br><br>
+
+        <button type="submit">Submit</button>
+    </form>
 </body>
 </html>

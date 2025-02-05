@@ -41,11 +41,9 @@ def process():
         try:
             parsed_resume = parse_resume(file_path, filename)
 
-            return jsonify({
-                "message": "Application submitted successfully!",
-                "parsed_resume": parsed_resume,
-                "job_description": job_description
-            })
+            return render_template('parsed_results.html',
+                                   parsed_resume=parsed_resume,
+                                   job_description=job_description)
         except Exception as e:
             return jsonify({"error": str(e)}), 500
         finally:
