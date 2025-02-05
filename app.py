@@ -5,7 +5,7 @@ import docx
 import pdfplumber
 from flask import Flask, request, render_template, jsonify
 from werkzeug.utils import secure_filename
-from resumeparser import ats_extractor
+from transformers import pipeline
 
 app = Flask(__name__)
 
@@ -55,36 +55,43 @@ def process():
 def parse_resume(file_path, filename):
     ext = filename.lower().split('.')[-1]
 
-    # Attempt structured parsing using ats_extractor
+    # Attempt structured parsing using Hugging Face NER models
     try:
-        structured_data = ats_extractor(file_path)
-        if structured_data and "name" in structured_data:  # Validate extraction success
-            return structured_data
+        resume_text = ""
+        if ext == "pdf":
+            resume_text = read_pdf_file(file_path)
+        elif ext == "docx":
+            resume_text = read_docx_file(file_path)
+        elif ext == "txt":
+            with open(file_path, 'r', encoding='utf-8') as f:
+                resume_text = f.read()
+
+        # Extract entities using Hugging Face NER models
+        structured_data = extract_resume_sections(resume_text)
+
+        return structured_data
     except Exception as e:
-        print(f"ATS Extractor failed: {e}")
-
-    # Fallback: Extract raw text manually
-    if ext == "pdf":
-        resume_text = read_pdf_file(file_path)
-    elif ext == "docx":
-        resume_text = read_docx_file(file_path)
-    elif ext == "txt":
-        with open(file_path, 'r', encoding='utf-8') as f:
-            resume_text = f.read()
-    else:
-        raise ValueError("Unsupported file format")
-
-    # Process extracted text into structured sections
-    return extract_resume_sections(resume_text)
+        print(f"Error in parsing: {e}")
+        raise ValueError("Failed to parse resume.")
 
 def extract_resume_sections(text):
-    """ Extract key details from resume text. """
+    """ Extract key details from resume text using Hugging Face models. """
+    # NER model for extracting names, emails, job titles, and other entities
+    ner_model = pipeline("ner", model="dbmdz/bert-large-cased-finetuned-conll03-english")
+
+    # Extract sections
+    name = extract_name(text)
+    contact = extract_contact(text, ner_model)
+    skills = extract_skills(text)
+    education = extract_education(text)
+    experience = extract_experience(text)
+
     sections = {
-        "name": extract_name(text),
-        "contact": extract_contact(text),
-        "skills": extract_skills(text),
-        "education": extract_education(text),
-        "experience": extract_experience(text)
+        "name": name,
+        "contact": contact,
+        "skills": skills,
+        "education": education,
+        "experience": experience
     }
     return sections
 
@@ -99,14 +106,15 @@ def read_docx_file(path):
     doc = docx.Document(path)
     return "\n".join([para.text for para in doc.paragraphs]).strip()
 
-### 🚀 Implemented Extraction Functions ###
 def extract_name(text):
     """ Extracts the first line assuming it's the candidate's name. """
     lines = text.split("\n")
     return lines[0].strip() if lines else "Unknown"
 
-def extract_contact(text):
-    """ Extracts phone, email, and LinkedIn using regex. """
+def extract_contact(text, ner_model):
+    """ Extracts phone, email, and LinkedIn using regex or NER. """
+    # Using NER to find potential entities in the resume
+    ner_results = ner_model(text)
     phone_pattern = re.compile(r'\b\d{10,13}\b')  # Matches 10 to 13 digit phone numbers
     email_pattern = re.compile(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}')
     linkedin_pattern = re.compile(r'linkedin\.com/in/[a-zA-Z0-9_-]+', re.IGNORECASE)
@@ -115,11 +123,13 @@ def extract_contact(text):
     email = email_pattern.findall(text)
     linkedin = linkedin_pattern.findall(text)
 
-    return {
+    contact_info = {
         "phone": phone[0] if phone else "Not Found",
         "email": email[0] if email else "Not Found",
         "linkedin": f"https://{linkedin[0]}" if linkedin else "Not Found"
     }
+
+    return contact_info
 
 def extract_education(text):
     """ Extracts education details from the resume using keyword-based search. """
