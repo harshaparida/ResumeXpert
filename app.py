@@ -98,6 +98,7 @@ def extract_experience(doc):
     return [sent.text.strip() for sent in doc.sents if any(job in sent.text.lower() for job in job_titles)]
 
 def calculate_ats_score(parsed_data):
+    print("Parsed Data for ATS Score Calculation:", parsed_data)  # Debugging line
     score = 0
     max_score = 100
     
@@ -109,6 +110,16 @@ def calculate_ats_score(parsed_data):
     score += min(len(parsed_data['experience']) * 5, 20)
     
     return (score / max_score) * 100
+
+@app.route('/ats-score', methods=['POST'])
+def get_ats_score():
+    data = request.get_json()
+    if data and 'parsed_data' in data:
+        score = calculate_ats_score(data['parsed_data'])
+        
+        print("Calculated ATS Score:", score)  # Debugging line
+        return jsonify({'score': score})
+    return jsonify({'error': 'No resume data provided'})
 
 def get_job_recommendations(skills):
     """
@@ -207,11 +218,6 @@ def upload_file():
         return jsonify({'error': 'Unsupported file format'})
 
     return jsonify({'success': True, 'parsed_data': parsed_data})
-
-@app.route('/ats-score', methods=['POST'])
-def get_ats_score():
-    data = request.get_json()
-    return jsonify({'score': calculate_ats_score(data['parsed_data'])}) if data and 'parsed_data' in data else jsonify({'error': 'No resume data provided'})
 
 @app.route('/job-recommendations', methods=['POST'])
 def get_jobs():

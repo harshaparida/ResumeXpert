@@ -125,20 +125,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     atsScoreBtn.addEventListener('click', async () => {
         if (!parsedData) return;
-
+    
         showLoading();
-
+    
         try {
             const response = await fetch('/ats-score', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify(parsedData)
+                body: JSON.stringify({ parsed_data: parsedData }) // Corrected the body format
             });
-
+    
             const data = await response.json();
-            document.getElementById('atsScoreValue').textContent = Math.round(data.ats_score);
+            document.getElementById('atsScoreValue').textContent = Math.round(data.score); // Corrected key to data.score
             atsScoreSection.classList.remove('hidden');
             jobRecommendationsSection.classList.add('hidden');
         } catch (error) {
@@ -164,12 +164,17 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             const data = await response.json();
+            if (data.error) {
+                alert(data.error);
+                return;
+            }
+
             displayJobRecommendations(data.recommendations);
             jobRecommendationsSection.classList.remove('hidden');
             atsScoreSection.classList.add('hidden');
         } catch (error) {
             console.error('Error:', error);
-            alert('An error occurred while getting job recommendations.');
+            alert('An error occurred while fetching job recommendations.');
         } finally {
             hideLoading();
         }
@@ -212,4 +217,4 @@ document.addEventListener('DOMContentLoaded', () => {
     function hideLoading() {
         loadingOverlay.classList.add('hidden');
     }
-}); 
+});
