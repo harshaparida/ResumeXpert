@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Page - Parsed Resumes</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Admin Dashboard - Parsed Resumes</h1>
+        <table border="1">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>Skills</th>
+                    <th>Education</th>
+                    <th>Experience</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for resume in resumes %}
+                <tr>
+                    <td>{{ resume.id }}</td>
+                    <td>{{ resume.name }}</td>
+                    <td>{{ resume.email }}</td>
+                    <td>{{ resume.phone }}</td>
+                    <td>{{ resume.skills | safe }}</td>
+                    <td>
+                        <ul>
+                            {% for edu in resume.education | safe %}
+                            <li>{{ edu }}</li>
+                            {% endfor %}
+                        </ul>
+                    </td>
+                    <td>
+                        <ul>
+                            {% for exp in resume.experience | safe %}
+                            <li>{{ exp }}</li>
+                            {% endfor %}
+                        </ul>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
