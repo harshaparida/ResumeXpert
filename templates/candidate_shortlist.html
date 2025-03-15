@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Candidate Shortlist - ResuMind</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <a href="/admin" class="nav-link">Dashboard</a>
+        <a href="/candidate-shortlist" class="nav-link">Candidate Shortlist</a>
+        <a href="/logout" class="nav-link logout">Logout</a>
+    </nav>
+
+    <div class="container">
+        <h1>Candidate Shortlist</h1>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Phone Number</th>
+                    <th>ATS Score</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for candidate in candidates %}
+                <tr>
+                    <td>{{ candidate[1] }}</td>
+                    <td>{{ candidate[3] }}</td>
+                    <td>{{ candidate[8] }}%</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

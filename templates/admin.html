@@ -3,50 +3,67 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Page - Parsed Resumes</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <title>Admin Dashboard - ResuMind</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
 </head>
 <body>
+    <nav class="navbar">
+        <a href="/candidate-shortlist" class="nav-link">Candidate Shortlist</a>
+        <a href="/admin-logout" class="nav-link logout">Logout</a>
+    </nav>
+
     <div class="container">
-        <h1>Admin Dashboard - Parsed Resumes</h1>
-        <table border="1">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>Phone</th>
-                    <th>Skills</th>
-                    <th>Education</th>
-                    <th>Experience</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for resume in resumes %}
-                <tr>
-                    <td>{{ resume.id }}</td>
-                    <td>{{ resume.name }}</td>
-                    <td>{{ resume.email }}</td>
-                    <td>{{ resume.phone }}</td>
-                    <td>{{ resume.skills | safe }}</td>
-                    <td>
-                        <ul>
-                            {% for edu in resume.education | safe %}
-                            <li>{{ edu }}</li>
-                            {% endfor %}
-                        </ul>
-                    </td>
-                    <td>
-                        <ul>
-                            {% for exp in resume.experience | safe %}
-                            <li>{{ exp }}</li>
-                            {% endfor %}
-                        </ul>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <h1>Admin Dashboard</h1>
+
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Phone Number</th>
+                        <th>Uploaded At</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for resume in resumes %}
+                    <tr>
+                        <td>{{ resume[1] }}</td>
+                        <td>{{ resume[3] }}</td>
+                        <td>{{ resume[9] }}</td>
+                        <td>
+                            <button class="btn toggle-btn" onclick="toggleSection('skills-{{ loop.index }}')">Skills</button>
+                            <div class="hidden-section" id="skills-{{ loop.index }}">
+                                {{ resume[4] }}
+                            </div>
+
+                            <button class="btn toggle-btn" onclick="toggleSection('education-{{ loop.index }}')">Education</button>
+                            <div class="hidden-section" id="education-{{ loop.index }}">
+                                {{ resume[5] }}
+                            </div>
+
+                            <button class="btn toggle-btn" onclick="toggleSection('experience-{{ loop.index }}')">Experience</button>
+                            <div class="hidden-section" id="experience-{{ loop.index }}">
+                                {{ resume[6] }}
+                            </div>
+
+                            <button class="btn toggle-btn" onclick="toggleSection('projects-{{ loop.index }}')">Projects</button>
+                            <div class="hidden-section" id="projects-{{ loop.index }}">
+                                {{ resume[7] }}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
+
+    <script>
+        function toggleSection(sectionId) {
+            const section = document.getElementById(sectionId);
+            section.classList.toggle('visible');
+        }
+    </script>
 </body>
 </html>

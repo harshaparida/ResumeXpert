@@ -2,6 +2,7 @@ import os
 import json
 import re
 from flask import Flask, request, jsonify, render_template
+from flask import Flask, render_template, request, redirect, url_for, session, flash
 from werkzeug.utils import secure_filename
 import pytesseract
 from PIL import Image
@@ -10,11 +11,15 @@ import docx
 from pdf2image import convert_from_path
 import google.generativeai as genai
 from dotenv import load_dotenv
+from flask import Flask, render_template
+import mysql.connector
 
 # Initialize Flask App
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+
+app.secret_key = '20233952'  # For session management
 
 # Create uploads folder if it doesn't exist
 if not os.path.exists(app.config['UPLOAD_FOLDER']):
@@ -25,6 +30,14 @@ load_dotenv()
 genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
 model = genai.GenerativeModel('gemini-1.5-flash')
 
+# MySQL Database Configuration
+db = mysql.connector.connect(
+    host='localhost',
+    user='root',
+    password='root',
+    database='resume_analysis'
+)
+cursor = db.cursor()
 
 # Utility functions for text extraction
 def extract_text_from_pdf(pdf_path):
@@ -183,6 +196,25 @@ def get_job_recommendations(skills):
         return []
 
 
+def store_parsed_data(parsed_data, ats_score):
+    sql = """
+    INSERT INTO resumes (name, email, phone, skills, education, experience, projects, ats_score)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+    """
+    values = (
+        parsed_data['name'],
+        parsed_data['email'],
+        parsed_data['phone'],
+        json.dumps(parsed_data['skills']),
+        json.dumps(parsed_data['education']),
+        json.dumps(parsed_data['experience']),
+        json.dumps(parsed_data.get('projects', [])),
+        ats_score
+    )
+    cursor.execute(sql, values)
+    db.commit()
+
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -205,6 +237,9 @@ def upload_file():
     if parsed_data is None:
         return jsonify({'error': 'Unable to parse resume'})
 
+    ats_score = calculate_ats_score(parsed_data)
+    store_parsed_data(parsed_data, ats_score)
+
     return jsonify({'success': True, 'parsed_data': parsed_data})
 
 
@@ -213,6 +248,53 @@ def get_jobs():
     data = request.get_json()
     return jsonify({'recommendations': get_job_recommendations(data['skills'])}) if data and 'skills' in data else jsonify({'error': 'No skills provided'})
 
+# Admin Login Route
+@app.route('/admin-login', methods=['GET', 'POST'])
+def admin_login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+
+        cursor = db.cursor()
+        cursor.execute("SELECT * FROM admin WHERE username=%s AND password=%s", (username, password))
+        admin = cursor.fetchone()
+
+        if admin:
+            session['admin_logged_in'] = True
+            return redirect(url_for('admin_page'))
+        else:
+            flash('Invalid username or password', 'error')
+
+    return render_template('admin_login.html')
+
+
+@app.route('/admin-page')
+def admin_page():
+    if 'admin_logged_in' not in session:
+        flash('Please log in first', 'error')
+        return redirect(url_for('admin_login'))
+
+    cursor.execute("SELECT * FROM resumes ORDER BY uploaded_at DESC")
+    resumes = cursor.fetchall()
+    return render_template('admin.html', resumes=resumes)
+
+# Admin Logout Route
+@app.route('/admin-logout')
+def admin_logout():
+    session.pop('admin_logged_in', None)
+    flash('Logged out successfully', 'success')
+    return redirect(url_for('admin_login'))
+
+@app.route('/candidate-shortlist')
+def candidate_shortlist():
+    cursor.execute("SELECT * FROM resumes WHERE ats_score >= 70")
+    shortlisted_candidates = cursor.fetchall()
+    return render_template('candidate_shortlist.html', candidates=shortlisted_candidates)
+
+
+
 
 if __name__ == '__main__':
+    print("✅ ResuMind server is running on http://localhost:5000")
     app.run(debug=True)
+
