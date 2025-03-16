@@ -1,7 +1,7 @@
 import os
 import json
 import re
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, Response
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from werkzeug.utils import secure_filename
 import pytesseract
@@ -13,6 +13,9 @@ import google.generativeai as genai
 from dotenv import load_dotenv
 from flask import Flask, render_template
 import mysql.connector
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
+import csv
+from io import StringIO
 
 # Initialize Flask App
 app = Flask(__name__)
@@ -291,7 +294,56 @@ def candidate_shortlist():
     shortlisted_candidates = cursor.fetchall()
     return render_template('candidate_shortlist.html', candidates=shortlisted_candidates)
 
+@app.route('/search-candidates', methods=['GET'])
+def search_candidates():
+    name = request.args.get('name', '')
+    phone = request.args.get('phone', '')
+    ats_score = request.args.get('ats_score', 0)
+    skills = request.args.get('skills', '')
 
+    query = "SELECT id, name, phone, ats_score, uploaded_at FROM resumes WHERE 1=1"
+
+    if name:
+        query += f" AND name LIKE '%{name}%'"
+    if phone:
+        query += f" AND phone LIKE '%{phone}%'"
+    if ats_score:
+        query += f" AND ats_score >= {int(ats_score)}"
+    if skills:
+        skill_list = skills.split(',')
+        for skill in skill_list:
+            query += f" AND skills LIKE '%{skill.strip()}%'"
+
+    cursor = db.cursor()
+    cursor.execute(query)
+    results = cursor.fetchall()
+
+    session['search_results'] = results
+
+    return render_template('search_candidates.html', results=results)
+
+
+@app.route('/export-data', methods=['GET'])
+def export_data():
+    results = session.get('search_results', [])
+
+    if not results:
+        return "No data available for export.", 400
+
+    # Create CSV data
+    output = StringIO()
+    csv_writer = csv.writer(output)
+    csv_writer.writerow(["ID", "Name", "Phone", "ATS Score", "Uploaded At"])
+
+    for resume in results:
+        csv_writer.writerow(resume)
+
+    output.seek(0)
+    return Response(
+        output.getvalue(),
+        mimetype='text/csv',
+        headers={'Content-Disposition': 'attachment; filename=filtered_results.csv'}
+    )
 
 
 if __name__ == '__main__':

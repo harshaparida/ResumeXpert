@@ -110,3 +110,50 @@ tbody tr:hover {
 .hidden-section.visible {
     display: block;
 }
+
+
+form {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+form input, form button {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+}
+
+.filter-form {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.filter-form input,
+.filter-form select,
+.filter-form button,
+.filter-form .export-btn {
+    padding: 8px 15px;
+    border: 1px solid #0078FF;
+    border-radius: 6px;
+}
+
+.filter-form button {
+    background-color: #0078FF;
+    color: #fff;
+    cursor: pointer;
+}
+
+.filter-form .export-btn {
+    background-color: #4CAF50;
+    color: #fff;
+    text-decoration: none;
+}
+
+.details-section {
+    background-color: #f0f4f8;
+    padding: 10px;
+    margin-top: 5px;
+    border-radius: 6px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Search Candidates - ResuMind</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <a href="/admin-page" class="nav-link">Dashboard</a>
+
+    </nav>
+    <div class="container">
+        <h1>Search Candidates</h1>
+
+        <form method="GET" action="/search-candidates">
+            <input type="text" name="name" placeholder="Search by name">
+            <input type="text" name="phone" placeholder="Search by phone">
+            <input type="number" name="ats_score" placeholder="Min ATS Score">
+            <input type="text" name="skills" placeholder="Search by skills (comma separated)">
+            <button type="submit">Search</button>
+            <a href="/export-data" class="btn export-btn">Export CSV</a>
+        </form>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Phone</th>
+                    <th>ATS Score</th>
+                    <th>Uploaded At</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for resume in results %}
+                <tr>
+                    <td>{{ resume[0] }}</td>
+                    <td>{{ resume[1] }}</td>
+                    <td>{{ resume[2] }}</td>
+                    <td>{{ resume[3] }}%</td>
+                    <td>{{ resume[4] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
