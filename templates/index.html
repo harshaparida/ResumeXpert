@@ -47,7 +47,7 @@
                             <div class="analysis-card">
                                 <h3><i class="fas fa-user"></i> Personal Details</h3>
                                 <div class="card-content">
-                                    <p><strong>Name:</strong> <span id="name"></span></p>
+                                    <p><strong>Name:</strong> <span id="name" class="name-value"></span></p>
                                     <p><strong>Email:</strong> <span id="email"></span></p>
                                     <p><strong>Phone:</strong> <span id="phone"></span></p>
                                 </div>
@@ -55,22 +55,22 @@
 
                             <div class="analysis-card">
                                 <h3><i class="fas fa-tools"></i> Skills</h3>
-                                <div id="skills" class="skills-list"></div>
+                                <div id="skills" class="skills-list card-content"></div>
                             </div>
 
                             <div class="analysis-card">
                                 <h3><i class="fas fa-graduation-cap"></i> Education</h3>
-                                <div id="education" class="card-content"></div>
+                                <div id="education" class="education-list card-content"></div>
                             </div>
 
                             <div class="analysis-card">
                                 <h3><i class="fas fa-briefcase"></i> Experience</h3>
-                                <div id="experience" class="card-content"></div>
+                                <div id="experience" class="experience-list card-content"></div>
                             </div>
 
                             <div class="analysis-card">
                                 <h3><i class="fas fa-project-diagram"></i> Projects</h3>
-                                <div id="projects" class="card-content"></div>
+                                <div id="projects" class="projects-list card-content"></div>
                             </div>
                         </div>
 
@@ -83,21 +83,29 @@
                                 <i class="fas fa-bullseye"></i>
                                 Get Job Recommendations
                             </button>
+                            <button id="downloadReportBtn" class="action-button success download-report">
+                                <i class="fas fa-file-pdf"></i>
+                                Download Report
+                            </button>
                         </div>
 
                         <div class="score-section hidden" id="atsScoreSection">
                             <h2><i class="fas fa-star"></i> ATS Score</h2>
                             <div class="score-display">
-                                <div class="score-circle">
+                                <div class="score-circle ats-score">
                                     <span id="atsScoreValue">0</span>%
                                 </div>
                                 <p class="score-info">This score indicates how well your resume might perform in Applicant Tracking Systems.</p>
+                            </div>
+                            <div class="improvements-section">
+                                <h3><i class="fas fa-lightbulb"></i> Suggested Improvements</h3>
+                                <ul id="improvementsList" class="improvements-list"></ul>
                             </div>
                         </div>
 
                         <div class="recommendations-section hidden" id="jobRecommendationsSection">
                             <h2><i class="fas fa-bullseye"></i> Job Recommendations</h2>
-                            <div id="recommendationsList" class="recommendations-grid"></div>
+                            <div id="recommendationsList" class="recommendations-list recommendations-grid"></div>
                         </div>
                     </div>
                 </div>
@@ -115,5 +123,47 @@
     </div>
 
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+    async function downloadReport() {
+        try {
+            const response = await fetch('/generate-report', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    name: document.getElementById('name').textContent || '',
+                    ats_score: document.getElementById('atsScoreValue').textContent || '',
+                    skills: Array.from(document.getElementById('skills').children).map(item => item.textContent),
+                    education: Array.from(document.getElementById('education').children).map(item => item.textContent),
+                    experience: Array.from(document.getElementById('experience').children).map(item => item.textContent),
+                    improvements: Array.from(document.getElementById('improvementsList').children).map(item => item.textContent),
+                    recommendations: Array.from(document.getElementById('recommendationsList').children).map(item => item.textContent)
+                })
+            });
+
+            if (response.ok) {
+                const blob = await response.blob();
+                const downloadUrl = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = downloadUrl;
+                link.download = "resume_analysis.pdf";
+                
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                
+                window.URL.revokeObjectURL(downloadUrl);
+            } else {
+                throw new Error('Failed to generate PDF');
+            }
+        } catch (error) {
+            console.error('Error downloading report:', error);
+            alert('Failed to download the report. Please try again.');
+        }
+    }
+
+    document.getElementById('downloadReportBtn').addEventListener('click', downloadReport);
+    </script>
 </body>
 </html>

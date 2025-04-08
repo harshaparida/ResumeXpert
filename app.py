@@ -1,7 +1,7 @@
 import os
 import json
 import re
-from flask import Flask, request, jsonify, render_template, Response
+from flask import Flask, request, jsonify, render_template, Response, send_file
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from werkzeug.utils import secure_filename
 import pytesseract
@@ -20,6 +20,11 @@ import hashlib
 from sqlalchemy import create_engine, Column, Integer, String, Text
 from sqlalchemy.orm import declarative_base, sessionmaker
 from datetime import datetime
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from io import BytesIO
 
 # Create the base class for SQLAlchemy
 Base = declarative_base()
@@ -202,28 +207,67 @@ def parse_resume_with_gemini(file_path):
 def calculate_ats_score(parsed_data):
     """
     Calculate ATS score based on extracted resume details.
+    Returns a score between 0 and 100.
     """
-    print("Parsed Data for ATS Score Calculation:", parsed_data)  # Debugging line
-    score = 0
-    max_score = 100
+    try:
+        score = 0
+        max_score = 100
 
-    score += 10 if parsed_data['name'] else 0
-    score += 10 if parsed_data['email'] else 0
-    score += 10 if parsed_data['phone'] else 0
-    score += min(len(parsed_data['skills']) * 5, 30)
-    score += min(len(parsed_data['education']) * 10, 20)
-    score += min(len(parsed_data['experience']) * 5, 20)
+        # Basic information (20%)
+        if parsed_data.get('name'):
+            score += 7
+        if parsed_data.get('email'):
+            score += 7
+        if parsed_data.get('phone'):
+            score += 6
 
-    return (score / max_score) * 100
+        # Skills (30%)
+        skills = parsed_data.get('skills', [])
+        skill_score = min(len(skills) * 3, 30)  # 3 points per skill, max 30
+        score += skill_score
+
+        # Education (20%)
+        education = parsed_data.get('education', [])
+        education_score = min(len(education) * 10, 20)  # 10 points per education, max 20
+        score += education_score
+
+        # Experience (30%)
+        experience = parsed_data.get('experience', [])
+        experience_score = min(len(experience) * 10, 30)  # 10 points per experience, max 30
+        score += experience_score
+
+        # Ensure score is between 0 and 100
+        final_score = min(max(score, 0), 100)
+        return final_score
+
+    except Exception as e:
+        print(f"Error calculating ATS score: {str(e)}")
+        return 0  # Return 0 if there's an error
 
 
 @app.route('/ats-score', methods=['POST'])
 def get_ats_score():
-    data = request.get_json()
-    if data and 'parsed_data' in data:
+    try:
+        data = request.get_json()
+        if not data or 'parsed_data' not in data:
+            return jsonify({'error': 'No resume data provided'}), 400
+
         score = calculate_ats_score(data['parsed_data'])
+        
+        # Update the ATS score in the database
+        if 'email' in data['parsed_data']:
+            candidate = sqlalchemy_session.query(CandidateProfile).filter_by(
+                email=data['parsed_data']['email']
+            ).first()
+            
+            if candidate:
+                candidate.ats_score = int(score)
+                sqlalchemy_session.commit()
+
         return jsonify({'score': score})
-    return jsonify({'error': 'No resume data provided'})
+    except Exception as e:
+        print(f"Error calculating ATS score: {str(e)}")
+        return jsonify({'error': 'Failed to calculate ATS score'}), 500
 
 
 def get_job_recommendations(skills):
@@ -233,33 +277,88 @@ def get_job_recommendations(skills):
     skills_text = ", ".join(skills)
 
     prompt = f"""
-    You are an AI career advisor. Given the following skills: {skills_text}, 
-    provide **exactly 5 job recommendations** in **valid JSON format**.
+    As an AI career advisor, analyze these skills: {skills_text}
+    Generate exactly 5 job recommendations that best match these skills.
+    
+    Instructions:
+    1. Consider current job market trends
+    2. Match skills to relevant job roles
+    3. Suggest complementary skills for each role
+    4. Provide realistic match percentages
+    5. Keep descriptions concise but informative
 
-    Each job should include:
-    - "title": Job title
-    - "match_percentage": A number between 0 and 100 indicating skill match
-    - "matching_skills": List of matched skills
-    - "recommended_skills": List of additional skills to learn
-    - "description": Short job description
-
-    Return output strictly in valid JSON format, like:
+    Return the recommendations in this exact JSON format:
     [
         {{
-            "title": "Software Engineer",
-            "match_percentage": 85,
-            "matching_skills": ["Python", "Django"],
-            "recommended_skills": ["Docker", "Kubernetes"],
-            "description": "A role focused on developing web applications using Python and Django."
-        }}
+            "title": "Job Title",
+            "match_percentage": number between 0-100,
+            "matching_skills": ["skill1", "skill2"],
+            "recommended_skills": ["skill1", "skill2"],
+            "description": "Brief job description"
+        }},
+        ... (total 5 items)
     ]
+
+    Requirements:
+    - Exactly 5 recommendations
+    - Valid JSON format
+    - No markdown formatting
+    - No additional text
+    - Match percentage must be a number
+    - All fields must be present
     """
 
     try:
         response = model.generate_content(prompt)
-        clean_response = response.text.strip().strip('```json').strip('```').strip()
+        print("Raw Gemini Response:", response.text)  # Debug log
+        
+        # Clean the response text
+        clean_response = response.text.strip()
+        if clean_response.startswith('```json'):
+            clean_response = clean_response[7:-3].strip()
+        elif clean_response.startswith('```'):
+            clean_response = clean_response[3:-3].strip()
+            
+        print("Cleaned Response:", clean_response)  # Debug log
+        
+        # Parse JSON
         recommendations = json.loads(clean_response)
-        return recommendations if isinstance(recommendations, list) else []
+        
+        # Validate recommendations
+        if not isinstance(recommendations, list):
+            print("❌ Error: Response is not a list")
+            return []
+            
+        if len(recommendations) != 5:
+            print("❌ Error: Did not receive exactly 5 recommendations")
+            return recommendations[:5] if len(recommendations) > 5 else recommendations
+            
+        # Validate each recommendation
+        valid_recommendations = []
+        required_fields = ['title', 'match_percentage', 'matching_skills', 'recommended_skills', 'description']
+        
+        for rec in recommendations:
+            if all(field in rec for field in required_fields):
+                # Ensure match_percentage is a number between 0 and 100
+                try:
+                    rec['match_percentage'] = min(100, max(0, float(rec['match_percentage'])))
+                except (ValueError, TypeError):
+                    rec['match_percentage'] = 0
+                    
+                # Ensure skills are lists
+                if not isinstance(rec['matching_skills'], list):
+                    rec['matching_skills'] = [str(rec['matching_skills'])]
+                if not isinstance(rec['recommended_skills'], list):
+                    rec['recommended_skills'] = [str(rec['recommended_skills'])]
+                    
+                valid_recommendations.append(rec)
+                
+        return valid_recommendations
+
+    except json.JSONDecodeError as e:
+        print(f"❌ JSON parsing error: {str(e)}")
+        print("Invalid JSON response:", clean_response)
+        return []
     except Exception as e:
         print(f"❌ Error generating job recommendations: {str(e)}")
         return []
@@ -283,7 +382,7 @@ def store_parsed_data(parsed_data, ats_score):
             candidate.education = json.dumps(parsed_data['education'])
             candidate.experience = json.dumps(parsed_data['experience'])
             candidate.projects = json.dumps(parsed_data.get('projects', []))
-            candidate.ats_score = ats_score
+            candidate.ats_score = int(ats_score)  # Ensure ats_score is stored as integer
             candidate.uploaded_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             candidate.city = city
             candidate.region = region
@@ -297,7 +396,7 @@ def store_parsed_data(parsed_data, ats_score):
                 education=json.dumps(parsed_data['education']),
                 experience=json.dumps(parsed_data['experience']),
                 projects=json.dumps(parsed_data.get('projects', [])),
-                ats_score=ats_score,
+                ats_score=int(ats_score),  # Ensure ats_score is stored as integer
                 uploaded_at=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 city=city,
                 region=region
@@ -317,6 +416,82 @@ def index():
     return render_template('index.html')
 
 
+def generate_resume_improvements(parsed_data):
+    """Generate suggested improvements for the resume using Google Gemini."""
+    prompt = f"""
+    As an expert resume reviewer, analyze this resume data and provide specific, actionable improvements.
+    Focus on enhancing both ATS compatibility and human readability.
+
+    Resume Data:
+    - Name: {parsed_data.get('name', '')}
+    - Skills: {', '.join(parsed_data.get('skills', []))}
+    - Education: {json.dumps(parsed_data.get('education', []))}
+    - Experience: {json.dumps(parsed_data.get('experience', []))}
+    - Projects: {json.dumps(parsed_data.get('projects', []))}
+
+    Provide exactly 5 specific improvements in a JSON array format. Each improvement should be:
+    1. Clear and actionable
+    2. Specific to the resume content
+    3. Focused on either ATS optimization or content enhancement
+    4. Explained in a single, concise sentence
+
+    Return ONLY a JSON array of 5 string improvements, like:
+    [
+        "Add measurable achievements to your experience at [Company Name]",
+        "Include specific versions of technical skills (e.g., Python 3.x, React 18)",
+        "Add duration for each project to demonstrate time management",
+        "Incorporate more industry-specific keywords from job descriptions",
+        "Quantify project impacts with metrics and percentages"
+    ]
+
+    The improvements should be tailored to this specific resume and its content.
+    """
+
+    try:
+        response = model.generate_content(prompt)
+        print("Raw Improvements Response:", response.text)  # Debug log
+        
+        # Clean the response text
+        clean_response = response.text.strip()
+        if clean_response.startswith('```json'):
+            clean_response = clean_response[7:-3].strip()
+        elif clean_response.startswith('```'):
+            clean_response = clean_response[3:-3].strip()
+            
+        print("Cleaned Improvements Response:", clean_response)  # Debug log
+        
+        # Parse JSON
+        improvements = json.loads(clean_response)
+        
+        # Validate improvements
+        if not isinstance(improvements, list):
+            print("❌ Error: Improvements response is not a list")
+            return []
+            
+        # Ensure exactly 5 improvements
+        if len(improvements) > 5:
+            improvements = improvements[:5]
+        elif len(improvements) < 5:
+            default_improvements = [
+                "Add more measurable achievements to your work experience",
+                "Include specific versions of technical skills",
+                "Add more details to your project descriptions",
+                "Incorporate relevant industry keywords",
+                "Quantify your achievements with metrics"
+            ]
+            improvements.extend(default_improvements[len(improvements):5])
+        
+        return improvements
+
+    except json.JSONDecodeError as e:
+        print(f"❌ JSON parsing error in improvements: {str(e)}")
+        print("Invalid JSON response:", clean_response)
+        return []
+    except Exception as e:
+        print(f"❌ Error generating improvements: {str(e)}")
+        return []
+
+
 @app.route('/upload', methods=['POST'])
 def upload_file():
     if 'resume' not in request.files:
@@ -326,24 +501,58 @@ def upload_file():
     if file.filename == '':
         return jsonify({'error': 'No selected file'})
 
-    filename = secure_filename(file.filename)
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    file.save(filepath)
+    try:
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(filepath)
 
-    parsed_data = parse_resume_with_gemini(filepath)
-    if parsed_data is None:
-        return jsonify({'error': 'Unable to parse resume'})
+        parsed_data = parse_resume_with_gemini(filepath)
+        if parsed_data is None:
+            return jsonify({'error': 'Unable to parse resume'})
 
-    ats_score = calculate_ats_score(parsed_data)
-    store_parsed_data(parsed_data, ats_score)
+        # Calculate ATS score
+        ats_score = calculate_ats_score(parsed_data)
+        
+        # Generate improvements
+        improvements = generate_resume_improvements(parsed_data)
+        
+        # Store the data
+        if not store_parsed_data(parsed_data, ats_score):
+            return jsonify({'error': 'Failed to store resume data'})
 
-    return jsonify({'success': True, 'parsed_data': parsed_data})
+        # Return success response with parsed data, ATS score, and improvements
+        return jsonify({
+            'success': True,
+            'parsed_data': parsed_data,
+            'ats_score': ats_score,
+            'improvements': improvements
+        })
+
+    except Exception as e:
+        print(f"Error in upload_file: {str(e)}")
+        return jsonify({'error': str(e)})
 
 
 @app.route('/job-recommendations', methods=['POST'])
 def get_jobs():
-    data = request.get_json()
-    return jsonify({'recommendations': get_job_recommendations(data['skills'])}) if data and 'skills' in data else jsonify({'error': 'No skills provided'})
+    try:
+        data = request.get_json()
+        if not data or 'skills' not in data:
+            return jsonify({'error': 'No skills provided'}), 400
+            
+        skills = data['skills']
+        if not isinstance(skills, list) or not skills:
+            return jsonify({'error': 'Invalid skills format'}), 400
+            
+        recommendations = get_job_recommendations(skills)
+        if not recommendations:
+            return jsonify({'error': 'Could not generate recommendations'}), 500
+            
+        return jsonify({'recommendations': recommendations})
+        
+    except Exception as e:
+        print(f"❌ Error in /job-recommendations route: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 # Admin Login Route
 @app.route('/admin-login', methods=['GET', 'POST'])
@@ -553,6 +762,100 @@ def resume_statistics():
                          region_stats=region_stats,
                          degree_stats=degree_stats,
                          skill_stats=skill_stats)
+
+@app.route('/generate-report', methods=['POST'])
+def generate_report():
+    try:
+        data = request.get_json()
+        
+        # Create a BytesIO buffer for the PDF
+        buffer = BytesIO()
+        
+        # Create the PDF document
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=letter,
+            rightMargin=72,
+            leftMargin=72,
+            topMargin=72,
+            bottomMargin=72
+        )
+        
+        # Get styles
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=24,
+            spaceAfter=30
+        )
+        
+        # Create the story (content) for the PDF
+        story = []
+        
+        # Add title
+        story.append(Paragraph("Resume Analysis Report", title_style))
+        story.append(Spacer(1, 12))
+        
+        # Add personal information
+        if 'name' in data:
+            story.append(Paragraph(f"Name: {data['name']}", styles['Normal']))
+            story.append(Spacer(1, 12))
+        
+        # Add ATS Score
+        story.append(Paragraph(f"ATS Score: {data.get('ats_score', 'N/A')}%", styles['Heading2']))
+        story.append(Spacer(1, 12))
+        
+        # Add Skills
+        if 'skills' in data:
+            story.append(Paragraph("Skills:", styles['Heading2']))
+            skills_text = ", ".join(data['skills'])
+            story.append(Paragraph(skills_text, styles['Normal']))
+            story.append(Spacer(1, 12))
+        
+        # Add Education
+        if 'education' in data:
+            story.append(Paragraph("Education:", styles['Heading2']))
+            for edu in data['education']:
+                story.append(Paragraph(f"• {edu}", styles['Normal']))
+            story.append(Spacer(1, 12))
+        
+        # Add Experience
+        if 'experience' in data:
+            story.append(Paragraph("Experience:", styles['Heading2']))
+            for exp in data['experience']:
+                story.append(Paragraph(f"• {exp}", styles['Normal']))
+            story.append(Spacer(1, 12))
+        
+        # Add Suggested Improvements
+        if 'improvements' in data:
+            story.append(Paragraph("Suggested Improvements:", styles['Heading2']))
+            for imp in data['improvements']:
+                story.append(Paragraph(f"• {imp}", styles['Normal']))
+            story.append(Spacer(1, 12))
+        
+        # Add Job Recommendations
+        if 'recommendations' in data:
+            story.append(Paragraph("Job Recommendations:", styles['Heading2']))
+            for rec in data['recommendations']:
+                story.append(Paragraph(f"• {rec}", styles['Normal']))
+        
+        # Build the PDF
+        doc.build(story)
+        
+        # Get the value of the BytesIO buffer
+        pdf = buffer.getvalue()
+        buffer.close()
+        
+        return send_file(
+            BytesIO(pdf),
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name='resume_analysis.pdf'
+        )
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     print("✅ ResuMind server is running on http://localhost:5000")
