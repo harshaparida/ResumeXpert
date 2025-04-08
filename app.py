@@ -50,6 +50,8 @@ class CandidateProfile(Base):
     projects = Column(Text)
     ats_score = Column(Integer)
     uploaded_at = Column(String(50))
+    city = Column(String(100))
+    region = Column(String(100))
 
     def __repr__(self):
         return f"<CandidateProfile(name={self.name}, email={self.email})>"
@@ -149,6 +151,7 @@ def parse_resume_with_gemini(file_path):
     - Education (Degree, Institution, Year)
     - Work experience (Job title, Company, Duration)
     - Projects (Title, Description, Technologies Used, Duration)
+    - Location (City, Region/State)
 
     Resume Text:
     {text}
@@ -167,7 +170,8 @@ def parse_resume_with_gemini(file_path):
         ],
         "projects": [
             {{"title": "AI Resume Analyzer", "description": "Developed an AI-powered resume analyzer.", "technologies": ["Python", "Flask", "Gemini AI"], "duration": "3 months"}}
-        ]
+        ],
+        "location": {{"city": "San Francisco", "region": "California"}}
     }}
     Ensure the JSON format is **valid and complete**.
     """
@@ -267,6 +271,10 @@ def store_parsed_data(parsed_data, ats_score):
         # Check if a profile with the same email already exists
         candidate = sqlalchemy_session.query(CandidateProfile).filter_by(email=parsed_data['email']).first()
 
+        location = parsed_data.get('location', {})
+        city = location.get('city', 'Unknown')
+        region = location.get('region', 'Unknown')
+
         if candidate:
             # Update existing profile
             candidate.name = parsed_data['name']
@@ -277,6 +285,8 @@ def store_parsed_data(parsed_data, ats_score):
             candidate.projects = json.dumps(parsed_data.get('projects', []))
             candidate.ats_score = ats_score
             candidate.uploaded_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            candidate.city = city
+            candidate.region = region
         else:
             # Create new profile
             candidate = CandidateProfile(
@@ -288,7 +298,9 @@ def store_parsed_data(parsed_data, ats_score):
                 experience=json.dumps(parsed_data['experience']),
                 projects=json.dumps(parsed_data.get('projects', [])),
                 ats_score=ats_score,
-                uploaded_at=datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                uploaded_at=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                city=city,
+                region=region
             )
             sqlalchemy_session.add(candidate)
 
@@ -495,6 +507,52 @@ def export_data():
         headers={'Content-Disposition': 'attachment; filename=filtered_results.csv'}
     )
 
+# Add new routes for statistics
+@app.route('/resume-statistics')
+def resume_statistics():
+    if 'admin_logged_in' not in session:
+        flash('Please log in first', 'error')
+        return redirect(url_for('admin_login'))
+
+    # Get all resumes
+    resumes = sqlalchemy_session.query(CandidateProfile).all()
+    
+    # Process statistics
+    city_stats = {}
+    region_stats = {}
+    degree_stats = {}
+    skill_stats = {}
+    
+    for resume in resumes:
+        # City statistics
+        city_stats[resume.city] = city_stats.get(resume.city, 0) + 1
+        
+        # Region statistics
+        region_stats[resume.region] = region_stats.get(resume.region, 0) + 1
+        
+        # Education statistics
+        education = json.loads(resume.education)
+        for edu in education:
+            degree = edu.get('degree', 'Unknown')
+            degree_stats[degree] = degree_stats.get(degree, 0) + 1
+        
+        # Skills statistics
+        skills = json.loads(resume.skills)
+        for skill in skills:
+            skill_stats[skill] = skill_stats.get(skill, 0) + 1
+    
+    # Sort statistics by count
+    city_stats = dict(sorted(city_stats.items(), key=lambda x: x[1], reverse=True))
+    region_stats = dict(sorted(region_stats.items(), key=lambda x: x[1], reverse=True))
+    degree_stats = dict(sorted(degree_stats.items(), key=lambda x: x[1], reverse=True))
+    # Get top 10 skills by converting sorted items to dict after slicing
+    skill_stats = dict(sorted(skill_stats.items(), key=lambda x: x[1], reverse=True)[:10])
+    
+    return render_template('resume_statistics.html', 
+                         city_stats=city_stats,
+                         region_stats=region_stats,
+                         degree_stats=degree_stats,
+                         skill_stats=skill_stats)
 
 if __name__ == '__main__':
     print("✅ ResuMind server is running on http://localhost:5000")
