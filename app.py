@@ -16,6 +16,68 @@ import mysql.connector
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 import csv
 from io import StringIO
+import hashlib
+from sqlalchemy import create_engine, Column, Integer, String, Text
+from sqlalchemy.orm import declarative_base, sessionmaker
+from datetime import datetime
+
+# Create the base class for SQLAlchemy
+Base = declarative_base()
+
+# Define the admin model
+class Admin(Base):
+    __tablename__ = 'admin'
+
+    id = Column(Integer, primary_key=True)
+    username = Column(String(50), unique=True, nullable=False)
+    password = Column(String(100), nullable=False)
+
+    def __repr__(self):
+        return f"<Admin(username={self.username})>"
+
+# Define the candidate profile model
+class CandidateProfile(Base):
+    __tablename__ = 'candidate_profiles'
+
+    id = Column(Integer, primary_key=True)
+    email = Column(String(255), unique=True, nullable=False)
+    name = Column(String(255))
+    resume = Column(Text)  # Store the resume in text or file path
+    skills = Column(Text)  # Skills can be stored as a comma-separated string or JSON
+    phone = Column(String(20))
+    education = Column(Text)
+    experience = Column(Text)
+    projects = Column(Text)
+    ats_score = Column(Integer)
+    uploaded_at = Column(String(50))
+
+    def __repr__(self):
+        return f"<CandidateProfile(name={self.name}, email={self.email})>"
+
+# Set up the database connection
+engine = create_engine("mysql://root:12345678@localhost/resume_analysis")
+
+# Create the table in the database (if it doesn't already exist)
+Base.metadata.create_all(engine)
+
+# Create a session to interact with the database
+Session = sessionmaker(bind=engine)
+sqlalchemy_session = Session()
+
+# Initialize admin user if not exists
+def initialize_admin():
+    admin = sqlalchemy_session.query(Admin).first()
+    if not admin:
+        # Create default admin user
+        default_admin = Admin(
+            username='admin',
+            password='admin123'  # In production, this should be hashed
+        )
+        sqlalchemy_session.add(default_admin)
+        sqlalchemy_session.commit()
+
+# Call the initialization function
+initialize_admin()
 
 # Initialize Flask App
 app = Flask(__name__)
@@ -37,7 +99,7 @@ model = genai.GenerativeModel('gemini-1.5-flash')
 db = mysql.connector.connect(
     host='localhost',
     user='root',
-    password='root',
+    password='12345678',
     database='resume_analysis'
 )
 cursor = db.cursor()
@@ -200,22 +262,42 @@ def get_job_recommendations(skills):
 
 
 def store_parsed_data(parsed_data, ats_score):
-    sql = """
-    INSERT INTO resumes (name, email, phone, skills, education, experience, projects, ats_score)
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-    """
-    values = (
-        parsed_data['name'],
-        parsed_data['email'],
-        parsed_data['phone'],
-        json.dumps(parsed_data['skills']),
-        json.dumps(parsed_data['education']),
-        json.dumps(parsed_data['experience']),
-        json.dumps(parsed_data.get('projects', [])),
-        ats_score
-    )
-    cursor.execute(sql, values)
-    db.commit()
+    """Store parsed resume data using SQLAlchemy."""
+    try:
+        # Check if a profile with the same email already exists
+        candidate = sqlalchemy_session.query(CandidateProfile).filter_by(email=parsed_data['email']).first()
+
+        if candidate:
+            # Update existing profile
+            candidate.name = parsed_data['name']
+            candidate.phone = parsed_data['phone']
+            candidate.skills = json.dumps(parsed_data['skills'])
+            candidate.education = json.dumps(parsed_data['education'])
+            candidate.experience = json.dumps(parsed_data['experience'])
+            candidate.projects = json.dumps(parsed_data.get('projects', []))
+            candidate.ats_score = ats_score
+            candidate.uploaded_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        else:
+            # Create new profile
+            candidate = CandidateProfile(
+                email=parsed_data['email'],
+                name=parsed_data['name'],
+                phone=parsed_data['phone'],
+                skills=json.dumps(parsed_data['skills']),
+                education=json.dumps(parsed_data['education']),
+                experience=json.dumps(parsed_data['experience']),
+                projects=json.dumps(parsed_data.get('projects', [])),
+                ats_score=ats_score,
+                uploaded_at=datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            )
+            sqlalchemy_session.add(candidate)
+
+        sqlalchemy_session.commit()
+        return True
+    except Exception as e:
+        print(f"Error storing parsed data: {str(e)}")
+        sqlalchemy_session.rollback()
+        return False
 
 
 @app.route('/')
@@ -258,9 +340,11 @@ def admin_login():
         username = request.form['username']
         password = request.form['password']
 
-        cursor = db.cursor()
-        cursor.execute("SELECT * FROM admin WHERE username=%s AND password=%s", (username, password))
-        admin = cursor.fetchone()
+        # Query admin using SQLAlchemy
+        admin = sqlalchemy_session.query(Admin).filter_by(
+            username=username,
+            password=password  # In production, use proper password hashing
+        ).first()
 
         if admin:
             session['admin_logged_in'] = True
@@ -277,9 +361,60 @@ def admin_page():
         flash('Please log in first', 'error')
         return redirect(url_for('admin_login'))
 
-    cursor.execute("SELECT * FROM resumes ORDER BY uploaded_at DESC")
-    resumes = cursor.fetchall()
-    return render_template('admin.html', resumes=resumes)
+    # Get all resumes ordered by upload date using SQLAlchemy
+    resumes = sqlalchemy_session.query(CandidateProfile).order_by(
+        CandidateProfile.uploaded_at.desc()
+    ).all()
+
+    # Convert to list of tuples for compatibility with existing template
+    formatted_resumes = []
+    for resume in resumes:
+        # Format JSON data for better display
+        skills = json.loads(resume.skills) if resume.skills else []
+        education = json.loads(resume.education) if resume.education else []
+        experience = json.loads(resume.experience) if resume.experience else []
+        projects = json.loads(resume.projects) if resume.projects else []
+
+        formatted_resumes.append((
+            resume.id,
+            resume.name,
+            resume.email,
+            resume.phone,
+            format_json_for_display(skills),
+            format_json_for_display(education),
+            format_json_for_display(experience),
+            format_json_for_display(projects),
+            resume.ats_score,
+            resume.uploaded_at
+        ))
+
+    return render_template('admin.html', resumes=formatted_resumes)
+
+def format_json_for_display(data):
+    """Format JSON data for HTML display."""
+    if isinstance(data, list):
+        if not data:
+            return "No data available"
+        if isinstance(data[0], dict):
+            # Format list of dictionaries
+            formatted = []
+            for item in data:
+                formatted.append("<div class='item'>")
+                for key, value in item.items():
+                    formatted.append(f"<strong>{key}:</strong> {value}<br>")
+                formatted.append("</div>")
+            return "".join(formatted)
+        else:
+            # Format simple list
+            return "<br>".join(str(item) for item in data)
+    elif isinstance(data, dict):
+        # Format single dictionary
+        formatted = []
+        for key, value in data.items():
+            formatted.append(f"<strong>{key}:</strong> {value}<br>")
+        return "".join(formatted)
+    else:
+        return str(data)
 
 # Admin Logout Route
 @app.route('/admin-logout')
@@ -290,9 +425,18 @@ def admin_logout():
 
 @app.route('/candidate-shortlist')
 def candidate_shortlist():
-    cursor.execute("SELECT * FROM resumes WHERE ats_score >= 70")
-    shortlisted_candidates = cursor.fetchall()
-    return render_template('candidate_shortlist.html', candidates=shortlisted_candidates)
+    # Query candidates with ATS score >= 70 using SQLAlchemy
+    shortlisted_candidates = sqlalchemy_session.query(CandidateProfile).filter(
+        CandidateProfile.ats_score >= 70
+    ).all()
+
+    # Convert to list of tuples for compatibility with existing template
+    formatted_candidates = [
+        (c.id, c.name, c.email, c.phone, c.skills, c.education, c.experience, c.projects, c.ats_score, c.uploaded_at)
+        for c in shortlisted_candidates
+    ]
+
+    return render_template('candidate_shortlist.html', candidates=formatted_candidates)
 
 @app.route('/search-candidates', methods=['GET'])
 def search_candidates():
@@ -301,26 +445,32 @@ def search_candidates():
     ats_score = request.args.get('ats_score', 0)
     skills = request.args.get('skills', '')
 
-    query = "SELECT id, name, phone, ats_score, uploaded_at FROM resumes WHERE 1=1"
+    # Start with base query
+    query = sqlalchemy_session.query(CandidateProfile)
 
+    # Apply filters
     if name:
-        query += f" AND name LIKE '%{name}%'"
+        query = query.filter(CandidateProfile.name.ilike(f'%{name}%'))
     if phone:
-        query += f" AND phone LIKE '%{phone}%'"
+        query = query.filter(CandidateProfile.phone.ilike(f'%{phone}%'))
     if ats_score:
-        query += f" AND ats_score >= {int(ats_score)}"
+        query = query.filter(CandidateProfile.ats_score >= int(ats_score))
     if skills:
         skill_list = skills.split(',')
         for skill in skill_list:
-            query += f" AND skills LIKE '%{skill.strip()}%'"
+            query = query.filter(CandidateProfile.skills.ilike(f'%{skill.strip()}%'))
 
-    cursor = db.cursor()
-    cursor.execute(query)
-    results = cursor.fetchall()
+    # Execute query and get results
+    results = query.all()
 
-    session['search_results'] = results
+    # Convert results to list of tuples for compatibility with existing template
+    formatted_results = [
+        (r.id, r.name, r.phone, r.ats_score, r.uploaded_at)
+        for r in results
+    ]
 
-    return render_template('search_candidates.html', results=results)
+    session['search_results'] = formatted_results
+    return render_template('search_candidates.html', results=formatted_results)
 
 
 @app.route('/export-data', methods=['GET'])

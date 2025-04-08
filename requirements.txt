@@ -12,4 +12,6 @@ numpy==1.23.5
 Pillow==9.5.0
 pdfminer.six==20221105
 python-magic==0.4.27
-google-generativeai==0.3.2 
+google-generativeai==0.3.2
+SQLAlchemy==2.0.25
+mysqlclient==2.2.1 

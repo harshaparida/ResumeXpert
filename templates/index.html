@@ -5,79 +5,112 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Resume Analyzer</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>AI Resume Analyzer</h1>
-            <p>Upload your resume and get instant analysis, ATS score, and job recommendations</p>
-        </header>
-
-        <main>
-            <div class="upload-section">
-                <div class="upload-box" id="dropZone">
-                    <img src="{{ url_for('static', filename='images/upload-icon.svg') }}" alt="Upload" class="upload-icon">
-                    <h3>Drag & Drop your resume here</h3>
-                    <p>or</p>
-                    <label for="fileInput" class="upload-btn">Browse Files</label>
-                    <input type="file" id="fileInput" accept=".pdf,.docx,.jpg,.jpeg,.png" hidden>
-                    <p class="file-info">Supported formats: PDF, DOCX, JPG, PNG</p>
+    <div class="page-wrapper">
+        <div class="container">
+            <header class="hero-section">
+                <div class="hero-content">
+                    <h1>AI Resume Analyzer</h1>
+                    <p>Transform your resume into a powerful tool for your career journey</p>
                 </div>
-            </div>
+            </header>
 
-            <div class="results-section hidden" id="resultsSection">
-                <div class="parsed-data">
-                    <h2>Resume Information</h2>
-                    <div class="info-grid">
-                        <div class="info-item">
-                            <h3>Personal Details</h3>
-                            <p><strong>Name:</strong> <span id="name"></span></p>
-                            <p><strong>Email:</strong> <span id="email"></span></p>
-                            <p><strong>Phone:</strong> <span id="phone"></span></p>
-                        </div>
-                        <div class="info-item">
-                            <h3>Skills</h3>
-                            <div id="skills" class="skills-container"></div>
-                        </div>
-                        <div class="info-item">
-                            <h3>Education</h3>
-                            <div id="education"></div>
-                        </div>
-                        <div class="info-item">
-                            <h3>Experience</h3>
-                            <div id="experience"></div>
-                        </div>
-                        <div class="info-item">
-                            <h3>Projects</h3>
-                            <div id="projects"></div>
+            <main>
+                <div class="upload-container">
+                    <div class="upload-area" id="dropZone">
+                        <div class="upload-content">
+                            <div class="upload-icon">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                            </div>
+                            <h3>Drag & Drop your resume here</h3>
+                            <p class="upload-divider">or</p>
+                            <label for="fileInput" class="upload-button">
+                                <i class="fas fa-folder-open"></i>
+                                Browse Files
+                            </label>
+                            <input type="file" id="fileInput" accept=".pdf,.docx,.jpg,.jpeg,.png" hidden>
+                            <p class="supported-formats">Supported formats: PDF, DOCX, JPG, PNG</p>
                         </div>
                     </div>
                 </div>
 
-                <div class="action-buttons">
-                    <button id="atsScoreBtn" class="btn primary">Calculate ATS Score</button>
-                    <button id="jobRecommendBtn" class="btn secondary">Get Job Recommendations</button>
-                </div>
+                <div class="results-container hidden" id="resultsSection">
+                    <div class="results-content">
+                        <div class="section-header">
+                            <h2><i class="fas fa-file-alt"></i> Resume Analysis</h2>
+                        </div>
+                        
+                        <div class="analysis-grid">
+                            <div class="analysis-card">
+                                <h3><i class="fas fa-user"></i> Personal Details</h3>
+                                <div class="card-content">
+                                    <p><strong>Name:</strong> <span id="name"></span></p>
+                                    <p><strong>Email:</strong> <span id="email"></span></p>
+                                    <p><strong>Phone:</strong> <span id="phone"></span></p>
+                                </div>
+                            </div>
 
-                <div class="ats-score hidden" id="atsScoreSection">
-                    <h2>ATS Score</h2>
-                    <div class="score-circle">
-                        <span id="atsScoreValue">0</span>%
+                            <div class="analysis-card">
+                                <h3><i class="fas fa-tools"></i> Skills</h3>
+                                <div id="skills" class="skills-list"></div>
+                            </div>
+
+                            <div class="analysis-card">
+                                <h3><i class="fas fa-graduation-cap"></i> Education</h3>
+                                <div id="education" class="card-content"></div>
+                            </div>
+
+                            <div class="analysis-card">
+                                <h3><i class="fas fa-briefcase"></i> Experience</h3>
+                                <div id="experience" class="card-content"></div>
+                            </div>
+
+                            <div class="analysis-card">
+                                <h3><i class="fas fa-project-diagram"></i> Projects</h3>
+                                <div id="projects" class="card-content"></div>
+                            </div>
+                        </div>
+
+                        <div class="action-section">
+                            <button id="atsScoreBtn" class="action-button primary">
+                                <i class="fas fa-chart-line"></i>
+                                Calculate ATS Score
+                            </button>
+                            <button id="jobRecommendBtn" class="action-button secondary">
+                                <i class="fas fa-bullseye"></i>
+                                Get Job Recommendations
+                            </button>
+                        </div>
+
+                        <div class="score-section hidden" id="atsScoreSection">
+                            <h2><i class="fas fa-star"></i> ATS Score</h2>
+                            <div class="score-display">
+                                <div class="score-circle">
+                                    <span id="atsScoreValue">0</span>%
+                                </div>
+                                <p class="score-info">This score indicates how well your resume might perform in Applicant Tracking Systems.</p>
+                            </div>
+                        </div>
+
+                        <div class="recommendations-section hidden" id="jobRecommendationsSection">
+                            <h2><i class="fas fa-bullseye"></i> Job Recommendations</h2>
+                            <div id="recommendationsList" class="recommendations-grid"></div>
+                        </div>
                     </div>
-                    <p class="score-description">This score indicates how well your resume might perform in Applicant Tracking Systems.</p>
                 </div>
-
-                <div class="job-recommendations hidden" id="jobRecommendationsSection">
-                    <h2>Job Recommendations</h2>
-                    <div id="recommendationsList" class="recommendations-container"></div>
-                </div>
-            </div>
-        </main>
+            </main>
+        </div>
 
         <div class="loading-overlay hidden" id="loadingOverlay">
-            <div class="loader"></div>
-            <p>Processing your resume...</p>
+            <div class="loader-content">
+                <div class="loader-icon">
+                    <i class="fas fa-spinner fa-spin"></i>
+                </div>
+                <p>Processing your resume...</p>
+            </div>
         </div>
     </div>
 

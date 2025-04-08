@@ -80,7 +80,12 @@ tbody tr:nth-child(even) {
 
 tbody tr:hover {
     background-color: #e3f2fd;
-    cursor: pointer;
+}
+
+.action-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
 }
 
 .btn {
@@ -91,7 +96,7 @@ tbody tr:hover {
     border-radius: 6px;
     cursor: pointer;
     transition: background 0.3s ease;
-    margin-top: 5px;
+    font-size: 0.9em;
 }
 
 .btn:hover {
@@ -100,60 +105,60 @@ tbody tr:hover {
 
 .hidden-section {
     display: none;
-    background-color: #eef3f7;
-    padding: 10px;
-    margin-top: 5px;
+    background-color: #f8f9fa;
+    padding: 15px;
+    margin-top: 10px;
+    border-radius: 8px;
     border-left: 4px solid #0078FF;
-    border-radius: 6px;
 }
 
 .hidden-section.visible {
     display: block;
 }
 
+.hidden-section h4 {
+    color: #2C3E50;
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-size: 1.1em;
+}
+
+.content-box {
+    background-color: #ffffff;
+    padding: 15px;
+    border-radius: 6px;
+    border: 1px solid #e1e4e8;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.content-box pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    margin: 0;
+    font-family: inherit;
+}
 
 form {
     display: flex;
     gap: 10px;
     margin-bottom: 20px;
+    flex-wrap: wrap;
 }
-form input, form button {
+
+input[type="text"],
+input[type="number"] {
     padding: 8px 12px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-}
-
-.filter-form {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 20px;
-}
-
-.filter-form input,
-.filter-form select,
-.filter-form button,
-.filter-form .export-btn {
-    padding: 8px 15px;
-    border: 1px solid #0078FF;
+    border: 1px solid #e1e4e8;
     border-radius: 6px;
+    font-size: 0.9em;
 }
 
-.filter-form button {
-    background-color: #0078FF;
-    color: #fff;
-    cursor: pointer;
+.export-btn {
+    background-color: #28a745;
+    margin-left: auto;
 }
 
-.filter-form .export-btn {
-    background-color: #4CAF50;
-    color: #fff;
-    text-decoration: none;
-}
-
-.details-section {
-    background-color: #f0f4f8;
-    padding: 10px;
-    margin-top: 5px;
-    border-radius: 6px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+.export-btn:hover {
+    background-color: #218838;
 }
