@@ -1,4 +1,3 @@
-```markdown
 # CVXpert – AI-Powered Resume Analyzer & Job Matcher
 
 CVXpert is a smart resume analyzer and job matcher web application built with **Flask (Python)**, **HTML/CSS/JavaScript**, and integrated with **Google Gemini AI**. It allows users to upload resumes, extract details, calculate ATS scores, and get personalized job recommendations.
@@ -99,10 +98,6 @@ class Candidate(Base):
     job_recommendations = Column(Text)
     uploaded_at = Column(String(100))
 ```
-
----
-
 ## License
 
 This project is licensed under the **MIT License**.
-```
