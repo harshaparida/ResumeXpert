@@ -646,9 +646,9 @@ def admin_logout():
 
 @app.route('/candidate-shortlist')
 def candidate_shortlist():
-    # Query candidates with ATS score >= 70 using SQLAlchemy
+    # Query candidates with ATS score >= 50 using SQLAlchemy
     shortlisted_candidates = sqlalchemy_session.query(CandidateProfile).filter(
-        CandidateProfile.ats_score >= 70
+        CandidateProfile.ats_score >= 50
     ).all()
 
     # Convert to list of tuples for compatibility with existing template
