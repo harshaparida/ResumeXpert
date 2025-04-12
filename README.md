@@ -1,88 +1,108 @@
-# AI Resume Analyzer
+```markdown
+# CVXpert – AI-Powered Resume Analyzer & Job Matcher
 
-A modern web application that analyzes resumes using AI, calculates ATS scores, and provides job recommendations based on skills.
+CVXpert is a smart resume analyzer and job matcher web application built with **Flask (Python)**, **HTML/CSS/JavaScript**, and integrated with **Google Gemini AI**. It allows users to upload resumes, extract details, calculate ATS scores, and get personalized job recommendations.
+
+---
 
 ## Features
 
-- Multi-format resume parsing (PDF, DOCX, JPG, PNG)
-- OCR support for image-based resumes
-- Accurate information extraction using NLP
-- ATS (Applicant Tracking System) score calculation
-- Job recommendations based on skills
-- Modern, responsive UI with drag-and-drop support
+- **Resume Parsing**: Extracts contact details, education, experience, skills, and projects.
+- **Multi-Format Support**: Supports PDF, DOC, DOCX, TXT, PNG, JPG, and JPEG files.
+- **ATS Score Calculation**: Matches resumes with job descriptions to compute a score.
+- **AI-Powered Recommendations**: Suggests job roles using Google Gemini.
+- **MySQL Database Integration**: Stores all parsed resume data.
+- **User Authentication**: Login/Register system to keep user data secure.
+- **Admin Dashboard**: View, search, filter, and export all candidate data.
+- **Data Export**: Export resume data as CSV or PDF.
 
-## Prerequisites
+---
 
-- Python 3.8+
-- Tesseract OCR (for image processing)
-- Required Python packages (listed in requirements.txt)
+## Tech Stack
 
-## Installation
+- **Frontend**: HTML, CSS, JavaScript
+- **Backend**: Flask (Python)
+- **Database**: MySQL with SQLAlchemy ORM
+- **AI Integration**: Google Gemini (via Gemini API)
+- **OCR**: Tesseract (for image-based resumes)
+- **File Handling**: pdf2image, PyPDF2, python-docx
+- **PDF Export**: ReportLab
 
-1. Clone the repository:
+---
+
+## Setup Instructions
+
+### 1. Clone the repository
+
 ```bash
-git clone <repository-url>
-cd ai-resume-analyzer
+git clone https://github.com/yourusername/cvxpert.git
+cd cvxpert
 ```
 
-2. Create a virtual environment:
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
+### 2. Install required Python packages
 
-3. Install the required packages:
 ```bash
 pip install -r requirements.txt
 ```
 
-4. Install Tesseract OCR:
-- Windows: Download and install from https://github.com/UB-Mannheim/tesseract/wiki
-- Linux: `sudo apt-get install tesseract-ocr`
-- Mac: `brew install tesseract`
+### 3. Set up your `.env` file
 
-5. Download the spaCy model:
-```bash
-python -m spacy download en_core_web_sm
+Create a `.env` file with your Google Gemini API key and database credentials.
+
+```env
+GEMINI_API_KEY=your_api_key
+DB_USER=root
+DB_PASSWORD=your_password
+DB_NAME=cvxpert_db
+DB_HOST=localhost
 ```
 
-## Usage
+### 4. Run the Flask app
 
-1. Start the Flask application:
 ```bash
 python app.py
 ```
 
-2. Open your web browser and navigate to:
+Go to `http://localhost:5000` in your browser to access the app.
+
+---
+
+## Folder Structure
+
 ```
-http://localhost:5000
+cvxpert/
+├── static/               # CSS, JS, and file uploads
+├── templates/            # HTML templates
+├── app.py                # Main Flask app
+├── models.py             # SQLAlchemy database models
+├── requirements.txt      # Python dependencies
+├── .env                  # API keys and DB config (not tracked by git)
+└── README.md             # Project documentation
 ```
 
-3. Upload a resume by either:
-   - Dragging and dropping the file onto the upload area
-   - Clicking "Browse Files" and selecting the file
+---
 
-4. View the parsed information, calculate the ATS score, and get job recommendations
+## SQLAlchemy Model Example
 
-## Supported File Formats
+```python
+class Candidate(Base):
+    __tablename__ = 'candidates'
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100))
+    email = Column(String(100))
+    phone = Column(String(20))
+    education = Column(Text)
+    experience = Column(Text)
+    skills = Column(Text)
+    projects = Column(Text)
+    ats_score = Column(Integer)
+    job_recommendations = Column(Text)
+    uploaded_at = Column(String(100))
+```
 
-- PDF (.pdf)
-- Microsoft Word (.docx)
-- Images (.jpg, .jpeg, .png)
-
-## Technical Details
-
-- Backend: Flask (Python)
-- Frontend: HTML5, CSS3, JavaScript
-- NLP: spaCy
-- OCR: Tesseract
-- Document Processing: PyPDF2, python-docx
-- Image Processing: Pillow, pdf2image
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
+---
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details. 
+This project is licensed under the **MIT License**.
+```
